@@ -1,0 +1,17 @@
+scientific_wiki:
+  enabled: true
+  export_dir: "biodiversity_data/wiki_exports"
+  formats: ["markdown", "html", "bibtex"]
+  
+  # Citation numbering style
+  citation_style: "numbered"  # or "author-date"
+  bibliography_format: "chicago"  # or "apa", "mla"
+  
+  # Content generation
+  llm_synthesis_enabled: true
+  auto_export_on_hitl_approval: true
+  
+  # Appearance
+  include_toc: true  # Table of contents
+  include_metadata: true  # Created date, authors, etc
+  clickable_footnotes: true  # For HTML
