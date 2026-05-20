@@ -68,7 +68,7 @@ class UnifiedSpeciesExtractor:
         except Exception as exc:
             logger.debug(f"[WikiExtractor] Failed for {sp_name}: {exc}")
             return {}
-        
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  UNIFIED WIKI CLASS
@@ -112,9 +112,9 @@ class UnifiedWiki:
         """Fetch coordinates from OpenStreetMap via Overpass API."""
         if not locality or locality.lower() in ("not reported", "unknown"):
             return None, None
-        
+
         if len(locality) > 100:  # Skip long morpho descriptions
-            return None, None 
+            return None, None
 
         logger.info(f"[OSM Overpass] Geocoding: {locality}")
         query = f"""
@@ -156,7 +156,7 @@ class UnifiedWiki:
             sp_name = occ.get("validName") or occ.get("recordedName")
             if sp_name:
                 self.update_species_article(
-                    sp_name, occ, citation, 
+                    sp_name, occ, citation,
                     extra_facts=extra_facts_map.get(sp_name, {})
                 )
                 counts["species"] += 1
@@ -189,7 +189,7 @@ class UnifiedWiki:
         # Deduplicate occurrences
         occ_hash = hash(f"{occurrence.get('verbatimLocality')}_{citation}")
         existing_hashes = [hash(f"{o.get('verbatimLocality')}_{o.get('Source Citation')}") for o in art["occurrences"]]
-        
+
         if occ_hash not in existing_hashes:
             art["occurrences"].append(occurrence)
 
@@ -200,7 +200,7 @@ class UnifiedWiki:
         if extra_facts:
             ef = art.get("enhanced_facts", {})
             for k, v in extra_facts.items():
-                if v and not ef.get(k): 
+                if v and not ef.get(k):
                     ef[k] = v
                 elif isinstance(v, list) and isinstance(ef.get(k), list):
                     ef[k] = list(set(ef[k] + v))
@@ -262,11 +262,11 @@ class UnifiedWiki:
         if not _FOLIUM_AVAILABLE: return None
         m = folium.Map(location=[20.0, 78.0], zoom_start=4, tiles="CartoDB positron")
         added = 0
-        
+
         for fp in (self.root / "locality").glob("*.json"):
             art = self._read_json(fp)
             lat, lon = art.get("decimalLatitude"), art.get("decimalLongitude")
-            
+
             if lat is not None and lon is not None:
                 folium.CircleMarker(
                     location=[lat, lon],
@@ -281,11 +281,11 @@ class UnifiedWiki:
         if not _FOLIUM_AVAILABLE: return None
         art = self.get_species_article(species_name)
         if not art: return None
-        
+
         m = folium.Map(location=[20.0, 78.0], zoom_start=4, tiles="CartoDB positron")
         coords_added = []
         article_updated = False
-        
+
         # 1. Plot Type Locality
         ef = art.get("enhanced_facts", {})
         if ef.get("type_locality", {}).get("lat"):
@@ -303,7 +303,7 @@ class UnifiedWiki:
             lat = occ.get("decimalLatitude")
             lon = occ.get("decimalLongitude")
             loc = occ.get("verbatimLocality", "")
-            
+
             # Auto-Geocode via Overpass if missing
             if (lat is None or lon is None) and loc and loc != "Not Reported":
                 lat, lon = self._overpass_geocode(loc)
@@ -311,7 +311,7 @@ class UnifiedWiki:
                     occ["decimalLatitude"] = lat
                     occ["decimalLongitude"] = lon
                     article_updated = True
-            
+
             if lat is not None and lon is not None:
                 coords_added.append((lat, lon))
                 folium.CircleMarker(
@@ -320,20 +320,20 @@ class UnifiedWiki:
                     popup=loc,
                     color="#44BBA4", fill=True, fill_opacity=0.8
                 ).add_to(m)
-                
+
         # Save article if we found new coords
         if article_updated:
             self._save_json(self.root / "species" / f"{self._slugify(species_name)}.json", art)
 
         if not coords_added: return None
-        
+
         # Fit bounds to points
         if len(coords_added) > 1:
             m.fit_bounds(m.get_bounds())
         elif len(coords_added) == 1:
             m.location = [coords_added[0][0], coords_added[0][1]]
             m.zoom_start = 8
-            
+
         return m
 
     # ── UI Rendering ──────────────────────────────────────────────────────────
@@ -342,11 +342,11 @@ class UnifiedWiki:
         import streamlit as st
         art = self.get_species_article(species_name)
         ef = art.get("enhanced_facts", {})
-        
+
         st.markdown(f"## 🐚 {art.get('title', species_name)}")
         if ef.get("authority"):
             st.caption(f"**Authority:** {ef['authority']}")
-            
+
         c1, c2, c3 = st.columns(3)
         c1.metric("Recorded Habitats", len(art.get("habitats", [])))
         c2.metric("Known Localities", len(art.get("occurrences", [])))
@@ -372,7 +372,7 @@ class UnifiedWiki:
             col = ef.get("coloration", {})
             if col.get("life"): lines.append(f"- **Color in life:** {col['life']}")
             if col.get("preserved"): lines.append(f"- **Color preserved:** {col['preserved']}")
-            
+
             size = ef.get("size_metrics", {})
             if size.get("length_mm"): lines.append(f"- **Length:** {size['length_mm']} mm")
             if size.get("width_mm"): lines.append(f"- **Width:** {size['width_mm']} mm")

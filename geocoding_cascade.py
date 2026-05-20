@@ -314,17 +314,17 @@ def _resolve_occurrence_table(conn: sqlite3.Connection) -> str:
 class GeocodingCascade:
     """Five-tool geocoding cascade for BioTrace occurrence records."""
 
-    def __init__(self, geonames_db="", pincode_txt="", 
-                 pincode_state=None, use_nominatim=False, 
-                 nominatim_agent="BioTrace", gpkg_path="biodiversity_data/destination_gpkg_folder/combined_layers.gpkg", 
+    def __init__(self, geonames_db="", pincode_txt="",
+                 pincode_state=None, use_nominatim=False,
+                 nominatim_agent="BioTrace", gpkg_path="biodiversity_data/destination_gpkg_folder/combined_layers.gpkg",
                  hierarchy_db="biodiversity_data/locality_hierarchy.db"):
-        
+
         self.geonames_db = geonames_db
         self.use_nominatim = use_nominatim
         self.gpkg_path = gpkg_path
         self.hierarchy_db = hierarchy_db
-        
-        
+
+
 
         # ── Tool 3 · Pincode
         self._pincode = None
@@ -345,15 +345,15 @@ class GeocodingCascade:
                 logger.warning("[geocoding] Nominatim init: %s", exc)
 
         # ── Tool 2 · SQLite-Backed GPKG Fuzzy Search
-        self.village_records = [] 
-        
+        self.village_records = []
+
         if self.hierarchy_db and os.path.exists(self.hierarchy_db):
             try:
                 # Load the lightweight SQLite map instantly
                 conn = sqlite3.connect(self.hierarchy_db)
                 conn.row_factory = sqlite3.Row
                 rows = conn.execute("SELECT village, district, state, layer_name FROM villages").fetchall()
-                
+
                 # Cache as dicts for fast access
                 self.village_records = [dict(r) for r in rows]
                 self.village_names = [r["village"] for r in self.village_records]
@@ -377,68 +377,68 @@ class GeocodingCascade:
     # ─────────────────────────────────────────────────────────────────────────
     def _gpkg_fuzzy_search(self, locality_string: str) -> Optional[dict]:
         """
-        Fuzzy searches the SQLite DB, uses enriched context for disambiguation, 
+        Fuzzy searches the SQLite DB, uses enriched context for disambiguation,
         and extracts geometry from GPKG lazily.
         """
-        if not self.village_records or not locality_string: 
+        if not self.village_records or not locality_string:
             return None
-            
+
         # 1. Fuzzy match the core string against village names
         # We use token_set_ratio so "Narara Gujarat" matches "Narara" perfectly
         matches = process.extract(
-            locality_string, 
-            self.village_names, 
-            scorer=fuzz.token_set_ratio, 
-            score_cutoff=85, 
+            locality_string,
+            self.village_names,
+            scorer=fuzz.token_set_ratio,
+            score_cutoff=85,
             limit=10
         )
-        
+
         if not matches:
             return None
-            
+
         best_score = matches[0][1]
         top_matches = [m for m in matches if m[1] == best_score]
-        
+
         selected_record = None
         source_str = f"GPKG_Fuzzy_{best_score:.0f}"
-        
+
         # 2. DISAMBIGUATION: If multiple villages have the same score
         if len(top_matches) > 1:
             loc_lower = locality_string.lower()
-            
+
             # Check if the enriched locality_string contains the state or district of the match
             for match in top_matches:
                 idx = match[2]
                 record = self.village_records[idx]
                 state = str(record.get('state', '')).lower()
                 district = str(record.get('district', '')).lower()
-                
+
                 if (state and state in loc_lower) or (district and district in loc_lower):
                     selected_record = record
                     source_str += "_Context_Resolved"
                     break
-            
+
             # If context couldn't resolve it, flag for Human-in-the-Loop
             if not selected_record:
                 selected_record = self.village_records[top_matches[0][2]]
                 source_str += "_Multiple_Matches_HITL"
         else:
             selected_record = self.village_records[top_matches[0][2]]
-            
+
         # 3. LAZY SPATIAL LOAD: Fetch just the polygon for the winning record
         if selected_record and self.gpkg_path and os.path.exists(self.gpkg_path):
             try:
                 import geopandas as gpd
                 layer = selected_record['layer_name']
                 v_name = selected_record['village'].replace("'", "''") # Escape SQL quotes
-                
+
                 # Auto-detect column name based on layer
                 v_col = 'village' if not layer.endswith('_soi_ar') else 'name' # Adjust based on your GPKG
-                
+
                 # Fetch only this exact village from the heavy GPKG
                 sql = f"SELECT geometry FROM {layer} WHERE {v_col} = '{v_name}' LIMIT 1"
                 matched_gdf = gpd.read_file(self.gpkg_path, engine="pyogrio", sql=sql)
-                
+
                 if not matched_gdf.empty:
                     centroid = matched_gdf.iloc[0].geometry.centroid
                     return {
@@ -449,24 +449,24 @@ class GeocodingCascade:
                     }
             except Exception as e:
                 logger.warning(f"[geocoding] Failed lazy spatial load for GPKG: {e}")
-                
+
         return None
 
     def _nearest_gpkg_village(self, lat: float, lon: float, k: int = 1, max_dist_km: float = 10) -> Optional[dict]:
         if self.gpkg_gdf is None: return None
         import geopandas as gpd
         from shapely.geometry import Point
-        
+
         pt_proj = gpd.GeoSeries([Point(lon, lat)], crs='EPSG:4326').to_crs('EPSG:3857').iloc[0]
         gdf_proj = self.gpkg_gdf.to_crs('EPSG:3857')
-        
+
         nearby = gdf_proj[gdf_proj.geometry.intersects(pt_proj.buffer(max_dist_km * 1000))]
         if nearby.empty: return None
-        
+
         distances = nearby.geometry.distance(pt_proj)
         nearest_idx = distances.nsmallest(k).index[0]
         v_col = self.gpkg_cols.get('village')
-        
+
         return {
             "village": self.gpkg_gdf.loc[nearest_idx, v_col] if v_col else "Unknown",
             "distance_km": distances[nearest_idx] / 1000
@@ -477,25 +477,25 @@ class GeocodingCascade:
         if self.gpkg_gdf is None: return occ
         lat, lon = _to_float(occ.get("decimalLatitude")), _to_float(occ.get("decimalLongitude"))
         if lat is None or lon is None: return occ
-        
+
         from shapely.geometry import Point
         pt = Point(lon, lat)
         candidates = list(self.gpkg_sindex.intersection(pt.bounds))
-        
+
         for idx in candidates:
             if self.gpkg_gdf.iloc[idx].geometry.contains(pt):
                 v_col = self.gpkg_cols.get('village')
                 occ["geocodingSource"] = f"{occ.get('geocodingSource', '')}+GPKG_Valid"
                 occ["polygon_matched"] = self.gpkg_gdf.iloc[idx][v_col] if v_col else "Unknown"
                 return occ
-        
+
         nearest = self._nearest_gpkg_village(lat, lon, k=1)
         if nearest:
             occ["geocodingSource"] = f"{occ.get('geocodingSource', '')}+GPKG_Nearest({nearest['distance_km']:.1f}km)"
             occ["polygon_matched"] = nearest["village"]
         else:
             occ["geocodingSource"] = f"{occ.get('geocodingSource', '')}+GPKG_Out_of_Bounds"
-            
+
         return occ
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -539,7 +539,7 @@ class GeocodingCascade:
 
             if _has_coords(occ):
                 occ.setdefault("geocodingSource","LLM")
-                occ = self._validate_with_gpkg(occ) 
+                occ = self._validate_with_gpkg(occ)
                 occ = self._validate(occ)
                 result.append(occ); continue
 
@@ -597,7 +597,7 @@ class GeocodingCascade:
                     geocoded = self._nominatim.geocode_missing(missing)
                     geocoded = [self._validate_with_gpkg(o) for o in geocoded]
                     geocoded = [self._validate(o) for o in geocoded]
-                    
+
                     id_map = {id(o): o for o in geocoded}
                     result = [id_map.get(id(o), o) for o in result]
                 except Exception as exc:
@@ -618,7 +618,7 @@ class GeocodingCascade:
         ).fetchall()
         if not rows:
             conn.close(); return 0
-            
+
         updated = 0
         for i,(row_id,vl) in enumerate(rows):
             occ = self.geocode_single({"verbatimLocality":vl,"decimalLatitude":None,"decimalLongitude":None})
