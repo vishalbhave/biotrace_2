@@ -1,0 +1,10 @@
+site_name: BioTrace Documentation
+site_description: Documentation for the BioTrace unified pipeline
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - HITL Interface: hitl.md
+  - API Reference: api.md

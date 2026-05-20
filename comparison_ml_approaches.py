@@ -209,7 +209,7 @@ Why this approach:
   • Practical for production use
 
 Code:
-  from biotrace_hitl_ml_framework import OccurrenceTypeClassifier
+  from hitl.ml_framework import OccurrenceTypeClassifier
   classifier = OccurrenceTypeClassifier(config)
   classifier.train(texts, labels)  # → Accuracy: 89%
 
