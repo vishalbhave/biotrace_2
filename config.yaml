@@ -5,7 +5,7 @@ scientific_wiki:
   
   # Citation numbering style
   citation_style: "numbered"  # or "author-date"
-  bibliography_format: "chicago"  # or "apa", "mla"
+  bibliography_format: "apa"  # or "apa", "mla"
   
   # Content generation
   llm_synthesis_enabled: true
