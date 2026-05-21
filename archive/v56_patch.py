@@ -615,7 +615,7 @@ def render_streamlit_tab_patched(
 
         with filter_col:
             if db_path:
-                from biotrace_taxon_filter import TaxonFilterWidget, get_wiki_species_for_filter
+                from utils.taxon_filter import TaxonFilterWidget, get_wiki_species_for_filter
                 txf = TaxonFilterWidget(db_path)
                 filters = txf.render(
                     container=filter_col,
