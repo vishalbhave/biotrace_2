@@ -104,6 +104,7 @@ def install_v56_patches(
 
     # ── Patch 2: Wiki patches (refs, live occs, universal, verify, filter) ────
     try:
+        from archive.v56_patch import install_wiki_patches, build_patched_wiki
         install_wiki_patches(meta_db_path=meta_db_path)
         _WIKI_INSTANCE = build_patched_wiki(
             wiki_root    = wiki_root  or "biodiversity_data/wiki",
