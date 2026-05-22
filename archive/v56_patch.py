@@ -453,7 +453,7 @@ def render_unified_page_patched(self, sp_name: str, meta_db_path: str = "") -> s
     • recordedName shown in occurrence table
     • Universal taxon-agnostic language
     """
-    from biotrace_wiki_unified import _load_css
+    from wiki.unified_wiki import _load_css
 
     art = self.get_species_article(sp_name)
     if not art:
@@ -586,8 +586,10 @@ def render_streamlit_tab_patched(
     import pandas as pd
 
     # Inject CSS once
-    from biotrace_wiki_unified import inject_css_streamlit
-    inject_css_streamlit(self.css_path)
+
+    if self.css_path:
+        css = self._load_css()
+        if css: st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
 
     db_path = meta_db_path or getattr(self, "_meta_db_path", "")
     self._meta_db_path = db_path  # store for render_unified_page_patched
@@ -774,7 +776,7 @@ def install_wiki_patches(meta_db_path: str = ""):
         install_wiki_patches("biodiversity_data/metadata_v5.db")
     """
     try:
-        import biotrace_wiki_unified as _wmod
+        import wiki.unified_wiki as _wmod
         import types
 
         _cls = _wmod.BioTraceWikiUnified
@@ -819,7 +821,7 @@ def build_patched_wiki(wiki_root: str, meta_db_path: str = "", css_path: str = "
         )
     """
     install_wiki_patches(meta_db_path=meta_db_path)
-    from biotrace_wiki_unified import BioTraceWikiUnified
+    from wiki.unified_wiki import BioTraceWikiUnified
     inst = BioTraceWikiUnified(wiki_root, css_path=css_path or None)
     inst._meta_db_path = meta_db_path
     return inst
