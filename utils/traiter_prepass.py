@@ -18,6 +18,8 @@ import re, logging
 from dataclasses import dataclass, field
 from typing import Optional
 
+from archive.dedup_patch import LIFE_STAGE_TERMS
+
 logger = logging.getLogger("biotrace.prepass")
 
 # ── Span types ────────────────────────────────────────────────────────────────

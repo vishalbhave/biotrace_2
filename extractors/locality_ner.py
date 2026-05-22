@@ -498,6 +498,9 @@ class LocalityNER:
         self, text: str, max_entities: int = 100,
         author_blacklist: set[str] | None = None
     ) -> list[LocalityRecord]:
+        if isinstance(text, (bytes, bytearray)):
+            text = text.decode('utf-8', errors='replace')
+
         if author_blacklist is None:
             author_blacklist = set()
             
